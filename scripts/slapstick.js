@@ -149,12 +149,23 @@ function update() {
         }
 
         listOfParticles.forEach((particles, i) => {
-            particles.forEach(particle => {
-                particle.nextXY(times[i]);
-                particle.rotate();
-                particle.squeeze();
-                drawParticle(particle);
+            particles.forEach((particle, j, arr) => {
+				particle.nextXY(times[i]);
+				
+				if (particle.y < -10) {
+					arr.splice(j, 1);
+				}
+				else {
+					particle.rotate();
+					particle.squeeze();
+					drawParticle(particle);
+				}
             });
+			
+			if (particles.length == 0) {
+				listOfParticles.splice(i, 1);
+				times.splice(i, 1);
+			}
         });
     }
 
