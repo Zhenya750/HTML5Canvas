@@ -1,0 +1,1 @@
+Collection of simple animations created for html5 canvas using vanilla javascript. 
