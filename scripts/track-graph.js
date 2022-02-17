@@ -19,6 +19,26 @@ class Point {
     mul(num) {
         return new Point(this.x * num, this.y * num);
     }
+
+    isInCircle(p /*Point */, radius /*double */) {
+        if (this.x < p.x - radius) return false
+        if (this.x > p.x + radius) return false
+        if (this.y < p.y - radius) return false
+        if (this.y > p.y + radius) return false
+
+        return Math.pow(p.x - this.x, 2) + Math.pow(p.y - this.y, 2) <= 
+            Math.pow(radius, 2);
+    }
+
+    isOnLine(p1, p2 /*Point */, delta /*double */) {
+        if (this.x < Math.min(p1.x, p2.x)) return false;
+        if (this.x > Math.max(p1.x, p2.x)) return false;
+        if (this.y < Math.min(p1.y, p2.y)) return false;
+        if (this.y > Math.max(p1.y, p2.y)) return false;
+        
+        return Math.abs((p2.y - p1.y) * this.x - (p2.x - p1.x) * this.y + 
+            p2.x * p1.y - p2.y * p1.x) / p1.distanceTo(p2) <= delta;
+    }
 }
 
 class Edge {
@@ -26,11 +46,11 @@ class Edge {
         this.u = u;
         this.v = v;
         this.weight = weight;
-        this.segments = segments; // []{0 <= double1, double2 <= weight}
+        this.segments = segments;       // []{0 <= double1, double2 <= weight}
         this.up = new Point(100, 100);  // start point of the edge
         this.vp = new Point(200, 200);  // end point of the edge
-        this.sup = new Point(); // start point for segments
-        this.svp = new Point(); // end point for segments
+        this.sup = new Point();         // start point for segments
+        this.svp = new Point();         // end point for segments
         this.vertexRadius = Edge.getVertexRadius();
     }
 
@@ -84,7 +104,7 @@ window.onload = function() {
 
     drawGraph(edges);
 
-    // addEventListeners();
+    addEventListeners(edges);
     // setTimeout(update, updateTimeInMls);
 }
 
@@ -138,4 +158,30 @@ function drawVertices(verticesToPoint /* (int, Point) */, radius /* double */) {
         context.font = `bold 16px sans-serif`;
         context.fillText(v, vp.x, vp.y);
     }
+}
+
+function addEventListeners(edges) {
+    canvas.addEventListener('mousemove', function(evt) {
+        let x = evt.offsetX;
+        let y = evt.offsetY;
+        
+        document.body.style.cursor = "default"
+
+        for (let e of edges) {
+            if (e.up.isInCircle(new Point(x, y), Edge.getVertexRadius())) {
+                console.log('start v')
+                document.body.style.cursor = "grab"
+            }
+            
+            if (e.vp.isInCircle(new Point(x, y), Edge.getVertexRadius())) {
+                console.log('end v')
+                document.body.style.cursor = "grab"
+            }
+
+            if ((new Point(x, y)).isOnLine(e.sup, e.svp, edgeWidth)) {
+                console.log('on line')
+                document.body.style.cursor = "pointer"
+            }
+        }
+    });
 }
