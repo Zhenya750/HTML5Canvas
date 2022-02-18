@@ -20,6 +20,10 @@ class Point {
         return new Point(this.x * num, this.y * num);
     }
 
+    scalar(p /*Point */) {
+        return this.x * p.x + this.y * p.y;
+    }
+
     isInCircle(p /*Point */, radius /*double */) {
         if (this.x < p.x - radius) return false
         if (this.x > p.x + radius) return false
@@ -31,10 +35,13 @@ class Point {
     }
 
     isOnLine(p1, p2 /*Point */, delta /*double */) {
-        if (this.x < Math.min(p1.x, p2.x)) return false;
-        if (this.x > Math.max(p1.x, p2.x)) return false;
-        if (this.y < Math.min(p1.y, p2.y)) return false;
-        if (this.y > Math.max(p1.y, p2.y)) return false;
+        let v1 = this.sub(p1);
+        let v2 = p2.sub(p1);
+        if (v1.scalar(v2) < 0) return this.distanceTo(p1) <= delta;
+
+        v1 = this.sub(p2);
+        v2 = p1.sub(p2);
+        if (v1.scalar(v2) < 0) return this.distanceTo(p2) <= delta;
         
         return Math.abs((p2.y - p1.y) * this.x - (p2.x - p1.x) * this.y + 
             p2.x * p1.y - p2.y * p1.x) / p1.distanceTo(p2) <= delta;
@@ -46,28 +53,32 @@ class Edge {
         this.u = u;
         this.v = v;
         this.weight = weight;
-        this.segments = segments;       // []{0 <= double1, double2 <= weight}
-        this.up = new Point(100, 100);  // start point of the edge
-        this.vp = new Point(200, 200);  // end point of the edge
-        this.sup = new Point();         // start point for segments
-        this.svp = new Point();         // end point for segments
-        this.vertexRadius = Edge.getVertexRadius();
+        this.segments = segments;                   // []{0 <= double1, double2 <= weight}
+        this.up = new Point();                      // start point of the edge
+        this.vp = new Point();                      // end point of the edge
+        this.sup = new Point();                     // start point for segments
+        this.svp = new Point();                     // end point for segments
+        this.vertexRadius = Edge.getVertexRadius(); // readonly
     }
 
     static getVertexRadius() {
-        return 20;
+        return 15;
     }
 
-    convertEdgePointToXYPoint(edgePoint /* double */) {
+    static getEdgeWidth() {
+        return 3;
+    }
+
+    convertEdgePointToXYPoint(edgePoint /*double */) {
         if (edgePoint < 0) edgePoint = 0;
         if (edgePoint > this.weight) edgePoint = this.weight;
 
         let lambda = edgePoint / this.weight;
-        return this.svp.sub(this.sup).mul(lambda).add(this.sup)
+        return this.svp.sub(this.sup).mul(lambda).add(this.sup);
     }
 
     updateSegmentBoundPoints() {
-        let edgeLen = this.up.distanceTo(this.vp)
+        let edgeLen = this.up.distanceTo(this.vp);
         if (edgeLen < this.vertexRadius * 2) {
             console.error(`cannot calculate segment points: edgelen ${edgeLen} > ${this.vertexRadius}`);
             return;
@@ -77,12 +88,43 @@ class Edge {
         this.sup = this.vp.sub(this.up).mul(lambda).add(this.up);
         this.svp = this.vp.sub(this.up).mul(1 - lambda).add(this.up);
     }
+
+    hasPoint(p /*Point */) {
+        return p.isOnLine(this.sup, this.svp, Edge.getEdgeWidth());
+    }
+
+    hasPointOnStartVertex(p /*Point */) {
+        return this.up.isInCircle(p, Edge.getVertexRadius());
+    }
+
+    hasPointOnEndVertex(p /*Point */) {
+        return this.vp.isInCircle(p, Edge.getVertexRadius());
+    }
+
+    getPointedSegment(p /*Point */) {
+        if (!this.hasPoint(p)) return null;
+
+        for (let [a, b] of this.segments) {
+            let pa = this.convertEdgePointToXYPoint(a);
+            let pb = this.convertEdgePointToXYPoint(b);
+            
+            if (p.isOnLine(pa, pb, Edge.getEdgeWidth())) 
+                return [a, b];
+        }
+    }
+
+    moveStartVertex(p /*Point */) {
+        this.up = p;
+    }
+
+    moveEndVertex(p /*Point */) {
+        this.vp = p;
+    }
 }
 
 var canvas;
 var context;
 const updateTimeInMls = 30;
-const edgeWidth = 3;
 
 // preparing
 window.onload = function() {
@@ -97,15 +139,54 @@ window.onload = function() {
     // convert edgeInfo to edges
     const edges = [
         new Edge(0, 1, 10, [
-            [0, 5],
-            [7.5, 10],
+            [0, 3],
+            [5, 7],
         ]),
+        new Edge(1, 2, 20, [
+            [5, 10],
+        ]),
+        new Edge(2, 3, 50, [
+            [10, 20],
+        ]),
+        new Edge(1, 3, 50, [
+            [10, 20],
+        ]),
+        new Edge(0, 2, 10, []),
     ];
+
+    const verticesCount = 4;
+
+    // randomly move vertices
+    const vertexPoints = [];
+    for (let i = 0; i < verticesCount; i++) {
+        vertexPoints.push(new Point(
+            Math.floor(Math.random() * 300),
+            Math.floor(Math.random() * 300)
+        ));
+    }
+
+    console.log(vertexPoints)
+
+    for (let e of edges) {
+        e.moveStartVertex(vertexPoints[e.u]);
+        e.moveEndVertex(vertexPoints[e.v]);
+        // break;
+    }
 
     drawGraph(edges);
 
     addEventListeners(edges);
-    // setTimeout(update, updateTimeInMls);
+    setTimeout(function() {
+        update(edges);
+    }, updateTimeInMls);
+}
+
+function update(edges) {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    drawGraph(edges);
+    setTimeout(function() {
+        update(edges);
+    }, updateTimeInMls);
 }
 
 function drawGraph(edges /* []Edge*/) {
@@ -121,7 +202,8 @@ function drawGraph(edges /* []Edge*/) {
 
 function drawEdge(edge /* Edge */) {
     // draw full edge
-    context.lineWidth = edgeWidth;
+    context.strokeStyle = "black";
+    context.lineWidth = Edge.getEdgeWidth();
     context.beginPath();
     context.moveTo(edge.up.x, edge.up.y);
     context.lineTo(edge.vp.x, edge.vp.y);
@@ -161,27 +243,47 @@ function drawVertices(verticesToPoint /* (int, Point) */, radius /* double */) {
 }
 
 function addEventListeners(edges) {
+    let isMouseDown = false;
+
     canvas.addEventListener('mousemove', function(evt) {
-        let x = evt.offsetX;
-        let y = evt.offsetY;
-        
-        document.body.style.cursor = "default"
+        let mouseP = new Point(evt.offsetX, evt.offsetY);
+
+        document.body.style.cursor = "default";
 
         for (let e of edges) {
-            if (e.up.isInCircle(new Point(x, y), Edge.getVertexRadius())) {
-                console.log('start v')
-                document.body.style.cursor = "grab"
+            if (e.hasPointOnStartVertex(mouseP)) {
+                document.body.style.cursor = "grab";
+                if (isMouseDown) {
+                    e.moveStartVertex(mouseP);
+                }
             }
             
-            if (e.vp.isInCircle(new Point(x, y), Edge.getVertexRadius())) {
-                console.log('end v')
-                document.body.style.cursor = "grab"
+            if (e.hasPointOnEndVertex(mouseP)) {
+                document.body.style.cursor = "grab";
+                if (isMouseDown) {
+                    e.moveEndVertex(mouseP);
+                }
             }
 
-            if ((new Point(x, y)).isOnLine(e.sup, e.svp, edgeWidth)) {
-                console.log('on line')
-                document.body.style.cursor = "pointer"
+            if (e.hasPoint(mouseP)) {
+                document.body.style.cursor = "pointer";
+                
+                let s = e.getPointedSegment(mouseP);
+                if (s) {
+                    console.log(s);
+                }
+                else {
+                    console.log('on line');
+                }
             }
         }
+    });
+
+    canvas.addEventListener('mousedown', function(evt) {
+        isMouseDown = true;
+    });
+
+    canvas.addEventListener('mouseup', function(evt) {
+        isMouseDown = false;
     });
 }
