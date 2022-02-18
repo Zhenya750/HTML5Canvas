@@ -1,0 +1,10 @@
+#info {
+    background-color: rgba(16, 201, 23, 0.843);
+    padding: 0 10px;
+    border-radius: 20%;
+    z-index: 1000;
+}
+
+#info span {
+    color: white;
+}

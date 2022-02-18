@@ -247,13 +247,15 @@ function addEventListeners(edges) {
 
     canvas.addEventListener('mousemove', function(evt) {
         let mouseP = new Point(evt.offsetX, evt.offsetY);
-
+        
         document.body.style.cursor = "default";
-
+        let noPointedEdges = true;
+        
         for (let e of edges) {
             if (e.hasPointOnStartVertex(mouseP)) {
                 document.body.style.cursor = "grab";
                 if (isMouseDown) {
+                    document.body.style.cursor = "grabbing";
                     e.moveStartVertex(mouseP);
                 }
             }
@@ -261,21 +263,29 @@ function addEventListeners(edges) {
             if (e.hasPointOnEndVertex(mouseP)) {
                 document.body.style.cursor = "grab";
                 if (isMouseDown) {
+                    document.body.style.cursor = "grabbing";
                     e.moveEndVertex(mouseP);
                 }
             }
-
+            
             if (e.hasPoint(mouseP)) {
+                noPointedEdges = false;
                 document.body.style.cursor = "pointer";
                 
                 let s = e.getPointedSegment(mouseP);
                 if (s) {
                     console.log(s);
+                    drawInfoPanel(mouseP.sub(new Point(-10, 20)), s)
                 }
                 else {
+                    drawInfoPanel(mouseP.sub(new Point(-10, 20)), e.weight)
                     console.log('on line');
                 }
             }
+        }
+
+        if (noPointedEdges) {
+            cleanInfoPanel();
         }
     });
 
