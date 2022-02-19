@@ -53,72 +53,171 @@ class Edge {
         this.u = u;
         this.v = v;
         this.weight = weight;
-        this.segments = segments;                   // []{0 <= double1, double2 <= weight}
-        this.up = new Point();                      // start point of the edge
-        this.vp = new Point();                      // end point of the edge
-        this.sup = new Point();                     // start point for segments
-        this.svp = new Point();                     // end point for segments
-        this.vertexRadius = Edge.getVertexRadius(); // readonly
+        this.segments = segments;   // []{0 <= double1, double2 <= weight}
     }
 
-    static getVertexRadius() {
-        return 15;
+    static GetEdgeWidth = () => 3;
+}
+
+class Graph {
+    constructor() {
+        this.edges = [
+            new Edge(0, 1, 10, [
+                [0, 3],
+                [5, 7],
+            ]),
+            new Edge(1, 2, 20, [
+                [5, 10],
+            ]),
+            new Edge(2, 3, 50, [
+                [10, 20],
+            ]),
+            new Edge(1, 3, 50, [
+                [10, 20],
+            ]),
+            new Edge(0, 2, 10, []),
+        ];
+
+        // randomly move vertices
+        this.vertexPoints = [];
+        for (let i = 0; i < 4; i++) {
+            this.vertexPoints.push(new Point(
+                Math.floor(Math.random() * 300),
+                Math.floor(Math.random() * 300)
+            ));
+        }
     }
 
-    static getEdgeWidth() {
-        return 3;
-    }
+    static GetVertexRadius = () => 10;
 
-    convertEdgePointToXYPoint(edgePoint /*double */) {
-        if (edgePoint < 0) edgePoint = 0;
-        if (edgePoint > this.weight) edgePoint = this.weight;
-
-        let lambda = edgePoint / this.weight;
-        return this.svp.sub(this.sup).mul(lambda).add(this.sup);
-    }
-
-    updateSegmentBoundPoints() {
-        let edgeLen = this.up.distanceTo(this.vp);
-        if (edgeLen < this.vertexRadius * 2) {
-            console.error(`cannot calculate segment points: edgelen ${edgeLen} > ${this.vertexRadius}`);
-            return;
+    GetVP(v /*int */) {
+        if (v < 0 || v >= this.vertexPoints.length) {
+            console.error("out of bounds");
+            return null;
         }
 
-        let lambda = this.vertexRadius / edgeLen;
-        this.sup = this.vp.sub(this.up).mul(lambda).add(this.up);
-        this.svp = this.vp.sub(this.up).mul(1 - lambda).add(this.up);
+        return this.vertexPoints[v];
     }
 
-    hasPoint(p /*Point */) {
-        return p.isOnLine(this.sup, this.svp, Edge.getEdgeWidth());
+    ConvertEdgePointToXYPoint(edge /*Edge */, d /*double */) {
+        d = Math.max(0, d);
+        d = Math.min(d, edge.weight);
+
+        let lambda = d / edge.weight;
+        let [sup, svp] = this.getEdgeBoundPoints(edge);
+        return svp.sub(sup).mul(lambda).add(sup);
     }
 
-    hasPointOnStartVertex(p /*Point */) {
-        return this.up.isInCircle(p, Edge.getVertexRadius());
+    getEdgeBoundPoints(edge /*Edge */) {
+        let up = this.GetVP(edge.u);
+        let vp = this.GetVP(edge.v);
+        let edgeLen = up.distanceTo(vp);
+
+        if (edgeLen < Graph.GetVertexRadius() * 2) {
+            console.error(`cannot calculate segment points: edgelen ${edgeLen} > ${Graph.GetVertexRadius()}`);
+            return [new Point(), new Point()];
+        }
+
+        let lambda = Graph.GetVertexRadius() / edgeLen;
+        return [
+            vp.sub(up).mul(lambda).add(up),     // start point for segments
+            vp.sub(up).mul(1 - lambda).add(up)  // end point for segments
+        ];
     }
 
-    hasPointOnEndVertex(p /*Point */) {
-        return this.vp.isInCircle(p, Edge.getVertexRadius());
+    GetPointedVertex(p /*Point */) {
+        for (let u = 0; u < this.vertexPoints.length; u++) {
+            let up = this.GetVP(u);
+            if (up.isInCircle(p, Graph.GetVertexRadius())) {
+                return u;
+            }
+        }
+
+        return null;
     }
 
-    getPointedSegment(p /*Point */) {
-        if (!this.hasPoint(p)) return null;
-
-        for (let [a, b] of this.segments) {
-            let pa = this.convertEdgePointToXYPoint(a);
-            let pb = this.convertEdgePointToXYPoint(b);
+    GetPointedEdge(p /*Point */) {
+        for (let e of this.edges) {
+            let [sup, svp] = this.getEdgeBoundPoints(e);
             
-            if (p.isOnLine(pa, pb, Edge.getEdgeWidth())) 
+            if (p.isOnLine(sup, svp, Edge.GetEdgeWidth() * 1.5)) {
+                let segment = this.getPointedEdgeSegment(e, p);
+                return [e, segment];
+            }
+        }
+
+        return [null, null];
+    }
+
+    getPointedEdgeSegment(e /*Edge */, p /*Point */) {
+        for (let [a, b] of e.segments) {
+            let pa = this.ConvertEdgePointToXYPoint(e, a);
+            let pb = this.ConvertEdgePointToXYPoint(e, b);
+
+            if (p.isOnLine(pa, pb, Edge.GetEdgeWidth())) {
                 return [a, b];
+            }
+        }
+        
+        return null;
+    }
+
+    MoveVertex(u /*int */, p /*Point */) {
+        if (u < 0 || u >= this.vertexPoints.length) return;
+        this.vertexPoints[u] = p;
+    }
+}
+
+class GraphDrawer {
+    constructor(graph /*Graph */) {
+        this.graph = graph;
+    }
+
+    Draw() {
+        this.drawEdges();
+        this.drawVertices();
+    }
+    
+    drawEdges() {
+        for (let e of this.graph.edges) {
+            context.strokeStyle = "black";
+            context.lineWidth = Edge.GetEdgeWidth();
+            context.beginPath();
+            context.moveTo(this.graph.GetVP(e.u).x, this.graph.GetVP(e.u).y);
+            context.lineTo(this.graph.GetVP(e.v).x, this.graph.GetVP(e.v).y);
+            context.stroke();
+    
+            // draw segments on edge
+            context.strokeStyle = "lightgreen";
+    
+            for (let [a, b] of e.segments) {
+                let pa = this.graph.ConvertEdgePointToXYPoint(e, a);
+                let pb = this.graph.ConvertEdgePointToXYPoint(e, b);
+    
+                context.beginPath();
+                context.moveTo(pa.x, pa.y);
+                context.lineTo(pb.x, pb.y);
+                context.stroke();
+            }
         }
     }
 
-    moveStartVertex(p /*Point */) {
-        this.up = p;
-    }
-
-    moveEndVertex(p /*Point */) {
-        this.vp = p;
+    drawVertices() {
+        for (let v of this.graph.vertexPoints.keys()) {
+            let vp = this.graph.GetVP(v);
+            // body of the node
+            context.fillStyle = "white";
+            context.beginPath();
+            context.arc(vp.x, vp.y, Graph.GetVertexRadius(), 0, Math.PI * 2, false);  
+            context.fill();
+    
+            // name of the node
+            context.fillStyle = 'black';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.font = `bold 16px sans-serif`;
+            context.fillText(v, vp.x, vp.y);
+        }
     }
 }
 
@@ -133,167 +232,62 @@ window.onload = function() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // get graph, segments
-    // ...
-    const edgeInfo = [];
-    // convert edgeInfo to edges
-    const edges = [
-        new Edge(0, 1, 10, [
-            [0, 3],
-            [5, 7],
-        ]),
-        new Edge(1, 2, 20, [
-            [5, 10],
-        ]),
-        new Edge(2, 3, 50, [
-            [10, 20],
-        ]),
-        new Edge(1, 3, 50, [
-            [10, 20],
-        ]),
-        new Edge(0, 2, 10, []),
-    ];
+    const graph = new Graph();
+    const drawer = new GraphDrawer(graph);
 
-    const verticesCount = 4;
+    drawer.Draw();
 
-    // randomly move vertices
-    const vertexPoints = [];
-    for (let i = 0; i < verticesCount; i++) {
-        vertexPoints.push(new Point(
-            Math.floor(Math.random() * 300),
-            Math.floor(Math.random() * 300)
-        ));
-    }
-
-    console.log(vertexPoints)
-
-    for (let e of edges) {
-        e.moveStartVertex(vertexPoints[e.u]);
-        e.moveEndVertex(vertexPoints[e.v]);
-        // break;
-    }
-
-    drawGraph(edges);
-
-    addEventListeners(edges);
+    addEventListeners(graph);
     setTimeout(function() {
-        update(edges);
+        update(drawer);
     }, updateTimeInMls);
 }
 
-function update(edges) {
+function update(drawer /*GraphDrawer */) {
     context.clearRect(0, 0, canvas.width, canvas.height);
-    drawGraph(edges);
+    drawer.Draw();
     setTimeout(function() {
-        update(edges);
+        update(drawer);
     }, updateTimeInMls);
 }
 
-function drawGraph(edges /* []Edge*/) {
-    const verticesToPoints = new Map();
-    for (let e of edges) {
-        drawEdge(e);
-        verticesToPoints.set(e.u, e.up);
-        verticesToPoints.set(e.v, e.vp);
-    }
-
-    drawVertices(verticesToPoints, Edge.getVertexRadius())
-}
-
-function drawEdge(edge /* Edge */) {
-    // draw full edge
-    context.strokeStyle = "black";
-    context.lineWidth = Edge.getEdgeWidth();
-    context.beginPath();
-    context.moveTo(edge.up.x, edge.up.y);
-    context.lineTo(edge.vp.x, edge.vp.y);
-    context.stroke();
-
-    // draw segments on edge
-    edge.updateSegmentBoundPoints();
-    context.strokeStyle = "lightgreen";
-
-    for (let [a, b] of edge.segments) {
-        let pa = edge.convertEdgePointToXYPoint(a)
-        let pb = edge.convertEdgePointToXYPoint(b)
-
-        context.beginPath();
-        context.moveTo(pa.x, pa.y);
-        context.lineTo(pb.x, pb.y);
-        context.stroke();
-    }
-}
-
-function drawVertices(verticesToPoint /* (int, Point) */, radius /* double */) {
-    for (let v of verticesToPoint.keys()) {
-        let vp = verticesToPoint.get(v);
-        // body of the node
-        context.fillStyle = "white";
-        context.beginPath();
-        context.arc(vp.x, vp.y, radius, 0, Math.PI * 2, false);  
-        context.fill();
-
-        // name of the node
-        context.fillStyle = 'black';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.font = `bold 16px sans-serif`;
-        context.fillText(v, vp.x, vp.y);
-    }
-}
-
-function addEventListeners(edges) {
+function addEventListeners(graph /*Graph */) {
     let isMouseDown = false;
+    let pointedVertex = null;
 
     canvas.addEventListener('mousemove', function(evt) {
         let mouseP = new Point(evt.offsetX, evt.offsetY);
-        
-        document.body.style.cursor = "default";
-        let noPointedEdges = true;
-        
-        for (let e of edges) {
-            if (e.hasPointOnStartVertex(mouseP)) {
-                document.body.style.cursor = "grab";
-                if (isMouseDown) {
-                    document.body.style.cursor = "grabbing";
-                    e.moveStartVertex(mouseP);
-                }
-            }
-            
-            if (e.hasPointOnEndVertex(mouseP)) {
-                document.body.style.cursor = "grab";
-                if (isMouseDown) {
-                    document.body.style.cursor = "grabbing";
-                    e.moveEndVertex(mouseP);
-                }
-            }
-            
-            if (e.hasPoint(mouseP)) {
-                noPointedEdges = false;
-                document.body.style.cursor = "pointer";
-                
-                let s = e.getPointedSegment(mouseP);
-                if (s) {
-                    console.log(s);
-                    drawInfoPanel(mouseP.sub(new Point(-10, 20)), s)
-                }
-                else {
-                    drawInfoPanel(mouseP.sub(new Point(-10, 20)), e.weight)
-                    console.log('on line');
-                }
+       
+        if (isMouseDown) {
+            if (pointedVertex != null) {
+                graph.MoveVertex(pointedVertex, mouseP);
             }
         }
 
-        if (noPointedEdges) {
-            cleanInfoPanel();
+        if (!isMouseDown) {
+            let [pointedEdge, segment] = graph.GetPointedEdge(mouseP);
+            if (segment != null) {
+                drawInfoPanel(mouseP.sub(new Point(-10, 20)), segment) 
+            }
+            else if (pointedEdge != null) {
+               drawInfoPanel(mouseP.sub(new Point(-10, 20)), pointedEdge.weight) 
+            }
+            else {
+                cleanInfoPanel();
+            }
         }
     });
 
     canvas.addEventListener('mousedown', function(evt) {
         isMouseDown = true;
+        let mouseP = new Point(evt.offsetX, evt.offsetY);
+        pointedVertex = graph.GetPointedVertex(mouseP);
+        
     });
-
+    
     canvas.addEventListener('mouseup', function(evt) {
         isMouseDown = false;
+        let mouseP = new Point(evt.offsetX, evt.offsetY);
+        pointedVertex = graph.GetPointedVertex(mouseP);
     });
 }
