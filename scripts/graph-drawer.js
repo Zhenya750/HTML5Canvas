@@ -24,20 +24,27 @@ export class GraphDrawer {
             this.context.stroke();
     
             // draw segments on edge
-            this.context.strokeStyle = "lightgreen";
-    
-            for (let [a, b] of e.segments) {
+            for (let [a, b, color] of e.segments) {
+                if (!color) {
+                    color = Edge.GetDefaultColor();
+                }
+                
+                this.context.strokeStyle = color;
+                this.context.globalAlpha = 0.75;
+                
                 if (Math.abs(a - b) < GraphDrawer.getSegmentEpsilon()) {
                     b += GraphDrawer.getSegmentEpsilon();
                 }
-
+                
                 let pa = this.graph.ConvertEdgePointToXYPoint(e, a);
                 let pb = this.graph.ConvertEdgePointToXYPoint(e, b);
-    
+                
                 this.context.beginPath();
                 this.context.moveTo(pa.x, pa.y);
                 this.context.lineTo(pb.x, pb.y);
                 this.context.stroke();
+
+                this.context.globalAlpha = 1;
             }
         }
     }

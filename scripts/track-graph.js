@@ -15,10 +15,38 @@ window.onload = function() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const graph = new Graph();
+    const edges = [
+        new Edge(0, 1, 10, [
+            [0, 3, "pink"],
+            [1.5, 4],
+            [5, 7],
+        ]),
+        new Edge(1, 2, 20, [
+            // [5, 10],
+        ]),
+        new Edge(2, 3, 50, [
+            [10, 20],
+        ]),
+        new Edge(1, 3, 50, [
+            [10, 20],
+        ]),
+        new Edge(0, 2, 10, [
+            [5, 5],
+        ]),
+    ];
+
+    const graph = new Graph(4, edges);
     const drawer = new GraphDrawer(context, graph);
 
     drawer.Draw();
+
+    graph.AddSegments([
+        new Edge(2, 1, 10, [
+            [0, 7, "pink"],
+            [5, 10],
+        ]),
+    ]);
+
 
     addEventListeners(graph);
     setTimeout(function() {

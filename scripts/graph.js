@@ -2,39 +2,50 @@ import { Point } from './point.js';
 import { Edge } from './edge.js';
 
 export class Graph {
-    constructor() {
-        this.edges = [
-            new Edge(0, 1, 10, [
-                [0, 3],
-                [5, 7],
-            ]),
-            new Edge(1, 2, 20, [
-                [5, 10],
-            ]),
-            new Edge(2, 3, 50, [
-                [10, 20],
-            ]),
-            new Edge(1, 3, 50, [
-                [10, 20],
-            ]),
-            new Edge(0, 2, 10, [
-                [5, 5],
-            ]),
-        ];
+    constructor(vertexCount /*int */, edges /*Edge[] */) {
+        this.edges = edges; 
 
         // randomly move vertices
         this.vertexPoints = [];
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < vertexCount; i++) {
             this.vertexPoints.push(new Point(
                 Math.floor(Math.random() * 300),
                 Math.floor(Math.random() * 300)
             ));
         }
 
-        console.log(JSON.stringify(this.edges, null, '  '));
+        // console.log(JSON.stringify(this.edges, null, '  '));
     }
 
     static GetVertexRadius = () => 15;
+
+    SetSegments(segments /*Edge[] */) {
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+
+            for (let j = 0; j < this.edges.length; j++) {
+                const e = this.edges[j];
+
+                if (s.u == e.u && s.v == e.v) {
+                    e.segments = s.segments;
+                }
+            }
+        }
+    }
+    
+    AddSegments(segments /*Edge[] */) {
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            
+            for (let j = 0; j < this.edges.length; j++) {
+                const e = this.edges[j];
+                
+                if (s.u == e.u && s.v == e.v || s.u == e.v && s.v == e.u) {
+                    e.segments = e.segments.concat(s.segments);
+                }
+            }
+        }
+    }
 
     GetVP(v /*int */) {
         if (v < 0 || v >= this.vertexPoints.length) {
