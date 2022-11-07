@@ -1,4 +1,4 @@
-Collection of simple animations created for html5 canvas using vanilla javascript
+Collection of simple animations created for html5 canvas using vanilla javascript :)
 
 <img src="gifs/chaos.gif" width="100%">
 
